@@ -5,12 +5,16 @@
              Visual="Material">
     <ContentPage.Content>
         <StackLayout>
-            <Label Text="Welcome to Xamarin.Forms!"
+            <Label x:Name="DisplayMessage" Text="Welcome to Xamarin.Forms!"
                 VerticalOptions="CenterAndExpand" 
                 HorizontalOptions="CenterAndExpand" />
             <Button x:Name="TakePermission" Text="Permission" Clicked="TakePermission_Clicked" Margin="20"/>
 
             <Button x:Name="StartDownload" Text="Start Download" Clicked="StartDownload_Clicked" Margin="20"/>
+            <ProgressBar x:Name="DownloadProgress" Progress="0.0" Margin="20,20,20,0"/>
+            <Label x:Name="ProgressLabel"
+            Text="{Binding Source={x:Reference DownloadProgress},
+                               Path=Progress}" HorizontalTextAlignment="Center"/>
 
             <Button x:Name="ReadFile" Text="Read It" Clicked="ReadFile_Clicked" Margin="20"/>
         </StackLayout>

@@ -25,8 +25,9 @@ namespace DownloadMedia.Pages
         {
             try
             {
-                var task = Task.Run((Func<Task>)Run);
-                task.Wait();
+                 DownLoadFile();
+                //var task = Task.Run((Func<Task>)Run);
+                //task.Wait();
             }
             catch (Exception)
             {
@@ -39,6 +40,83 @@ namespace DownloadMedia.Pages
             }
 
 
+        }
+
+        async Task DownLoadFile()
+        {
+            string accessToken = "6xXCAAPwwBMAAAAAAAAAAVdWv90jkDLxNWK-aJwnuG3MB2hPb48LM4alQ3dX4cGW";
+            string apiKey = "j7wgim5upso0rwf";
+            string appSecret = "n2l24yigt9ah6pt";
+            try
+            {
+                DropboxClient dbx = new DropboxClient(accessToken,
+                    new DropboxClientConfig() { HttpClient = new HttpClient(new HttpClientHandler()) });
+
+                Dropbox.Api.Users.FullAccount full = await dbx.Users.GetCurrentAccountAsync();
+
+                Dropbox.Api.Files.ListFolderResult list = await dbx.Files.ListFolderAsync(string.Empty);
+
+                var videoFile = list.Entries.Where(i => i.IsFile
+                && i.Name.Contains("sample-mp4-file")
+                ).LastOrDefault();
+
+                string folder = "";
+                string file = videoFile.Name;
+                DisplayMessage.Text = file; //to display name on screen
+                var response = await dbx.Files.DownloadAsync(folder + "/" + file);
+
+
+                //local folder
+                var systemPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+                if (!Directory.Exists(systemPath))
+                {
+                    System.IO.Directory.CreateDirectory(systemPath);
+                }
+                string path = Path.Combine(systemPath, file);
+
+                //progressBar
+                ulong fileSize = response.Response.Size;
+                const int bufferSize = 1024 * 1024;
+                byte[] buffer = new byte[bufferSize];
+                Stream stream = await response.GetContentAsStreamAsync();
+                FileStream fileStream = new FileStream(path, FileMode.OpenOrCreate);
+                int length = stream.Read(buffer, 0, bufferSize);
+                int maxLength = length;
+                while (length > 0)
+                {
+                    fileStream.Write(buffer, 0, length);
+                    ulong percentage = 100 * (ulong)fileStream.Length / fileSize;
+                    var progressbarValue = (double)fileStream.Length / fileSize;
+                    // Update progress bar with the percentage.
+                    // progressBar.Value = (int)percentage
+                    Debug.WriteLine("======================percentage=====================");
+                    Debug.WriteLine(percentage);
+                    Debug.WriteLine(progressbarValue);
+
+                    length = stream.Read(buffer, 0, bufferSize);
+                    await DownloadProgress.ProgressTo(progressbarValue, 500, Easing.Linear);
+                }
+
+                //var save = response.GetContentAsByteArrayAsync();
+                //save.Wait();
+                //var result = save.Result;
+
+
+
+                //System.IO.File.WriteAllText(path, Convert.ToBase64String(result));
+
+                Console.WriteLine("{0} - {1}", full.Name.DisplayName, full.Email);
+
+            }
+            catch (BadInputException iex)
+            {
+                await DisplayAlert("Error", iex.Message, "OK");
+
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
         }
 
         public async Task<PermissionStatus> CheckAndRequestStoragePermission()
@@ -111,25 +189,57 @@ namespace DownloadMedia.Pages
                         Debug.WriteLine("F{0,8} {1}", item.AsFile.Size, item.Name);
                     }
 
-                    var videoFile = list.Entries.Where(i => i.IsFile && i.Name.Contains(".mp4")).FirstOrDefault();
+                    var videoFile = list.Entries.Where(i => i.IsFile
+                    && i.Name.Contains(".xlsx")
+                    ).LastOrDefault();
 
                     string folder = "";
                     string file = videoFile.Name;
-                    var response =  await dbx.Files.DownloadAsync(folder + "/" + file);
-                    var save = response.GetContentAsByteArrayAsync();
+                    var response = await dbx.Files.DownloadAsync(folder + "/" + file);
 
-                    save.Wait();
-                    var result = save.Result;
 
-                   var systemPath = System.Environment.GetFolderPath( Environment.SpecialFolder.MyVideos);
+                    //local folder
+                    var systemPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
                     if (!Directory.Exists(systemPath))
                     {
                         System.IO.Directory.CreateDirectory(systemPath);
                     }
-
                     string path = Path.Combine(systemPath, file);
 
-                    System.IO.File.WriteAllText(path, Convert.ToBase64String(result));
+                    //progressBar
+                    ulong fileSize = response.Response.Size;
+                    const int bufferSize = 1024 * 1024;
+                    byte[] buffer = new byte[bufferSize];
+                    using (Stream stream = await response.GetContentAsStreamAsync())
+                    {
+                        using (FileStream fileStream = new FileStream(path, FileMode.OpenOrCreate))
+                        {
+                            int length = stream.Read(buffer, 0, bufferSize);
+                            int maxLength = length;
+                            while (length > 0)
+                            {
+                                fileStream.Write(buffer, 0, length);
+                                ulong percentage = 100 * (ulong)fileStream.Length / fileSize;
+                                // Update progress bar with the percentage.
+                                // progressBar.Value = (int)percentage
+                                Debug.WriteLine("======================percentage=====================");
+                                Debug.WriteLine(percentage);
+
+                                length = stream.Read(buffer, 0, bufferSize);
+                                DownloadProgress.ProgressTo(length / maxLength, 500, Easing.Linear);
+
+                            }
+                        }
+                    }
+
+
+                    //var save = response.GetContentAsByteArrayAsync();
+                    //save.Wait();
+                    //var result = save.Result;
+
+
+
+                    //System.IO.File.WriteAllText(path, Convert.ToBase64String(result));
 
                     Console.WriteLine("{0} - {1}", full.Name.DisplayName, full.Email);
                 }
@@ -141,12 +251,12 @@ namespace DownloadMedia.Pages
             }
             catch (Exception ex)
             {
-                 await DisplayAlert("Error", ex.Message, "OK");
+                await DisplayAlert("Error", ex.Message, "OK");
             }
-           
+
         }
 
-        
+
 
         async Task ListRootFolder(DropboxClient dbx)
         {
@@ -172,7 +282,7 @@ namespace DownloadMedia.Pages
             }
         }
 
-        private  void TakePermission_Clicked(object sender, EventArgs e)
+        private void TakePermission_Clicked(object sender, EventArgs e)
         {
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -183,10 +293,29 @@ namespace DownloadMedia.Pages
 
         private void ReadFile_Clicked(object sender, EventArgs e)
         {
-            var path  = System.Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) + "/test.docx";
-            var readText = System.IO.File.ReadAllText(path);
+            try
+            {
+                var path = System.Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) + "/Book.xlsx";
+                var readText = System.IO.File.ReadAllText(path);
+            }
+            catch (ArgumentNullException arguNullEx)
+            { }
+            catch (ArgumentException arguEx)
+            { }
+            catch (PathTooLongException pathEx) { }
+            catch (DirectoryNotFoundException dirEx) { }
+            catch (FileNotFoundException fileEx) { }
+            catch (IOException ioEx) { }
+            catch (UnauthorizedAccessException unAuthEx) { }
+            catch (NotSupportedException ex) { }
+            catch (System.Security.SecurityException securityEx) { }
+            catch (Exception)
+            {
+                //throw;
+            }
 
-            var fileByteArrray = Convert.FromBase64String(readText);
+
+            //var fileByteArrray = Convert.FromBase64String(readText);
         }
     }
 }
